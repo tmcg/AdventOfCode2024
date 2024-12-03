@@ -1,25 +1,29 @@
 
 use advent::*;
 
+struct InputModel {
+    lines: Vec<String>,
+}
+
+impl From<&str> for InputModel {
+    fn from(s: &str) -> Self {
+        let lines = input_as_lines(s);
+        InputModel { lines }
+    }
+}
+
 fn default_input() -> &'static str {
     include_input!(00)
 }
 
-fn line_or_empty(lines: &[String], index: usize) -> String {
-    if lines.len() > index {
-        return lines[index].to_string()
-    }
-    String::from("")
-}
-
 pub fn part1() -> String {
-    let lines = input_as_lines(default_input());
-    line_or_empty(&lines, 0)
+    let model = InputModel::from(default_input());
+    model.lines.len().to_string()
 }
 
 pub fn part2() -> String {
-    let lines = input_as_lines(default_input());
-    line_or_empty(&lines, 1)
+    let model = InputModel::from(default_input());
+    model.lines.len().to_string()
 }
 
 fn main() {
