@@ -1,9 +1,9 @@
 set shell := ["pwsh.exe", "-c"]
 
 work day:
-    cargo watch -w src -x "check --bin {{day}}" -s "just test {{day}}" -s "just lint {{day}}"
+    cargo watch --clear -w src -x "check --bin {{day}}" -s "just test {{day}}" -s "just lint {{day}}"
 work-nc day:
-    cargo watch -w src -x "check --bin {{day}}" -s "just test-nc {{day}}" -s "just lint {{day}}"
+    cargo watch --clear -w src -x "check --bin {{day}}" -s "just test-nc {{day}}" -s "just lint {{day}}"
 lint day:
     cargo clippy --bin {{day}}
 test day:
