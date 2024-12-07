@@ -2,14 +2,14 @@
 use advent::*;
 use std::collections::{HashSet, HashMap};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct NorthPoleMap {
     chars: HashMap<Point32, char>,
     width: i32,
     height: i32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Eq, PartialEq, Copy, Clone)]
 struct NorthPoleGuard {
     pos: Point32,
     dir: Compass,
@@ -21,33 +21,96 @@ struct NorthPoleLab {
     guard: NorthPoleGuard
 }
 
+enum NorthPoleErr {
+    CycleDetected,
+}
+
+impl NorthPoleMap {
+    fn obstruct_at(&self, p: Point32) -> Self {
+        let mut result = self.clone();
+        result.chars.insert(p, '#');
+        result
+    }
+}
+
+impl NorthPoleGuard {
+    #[inline]
+    fn key(&self, part: u32) -> i32 {
+        if part == 2 {
+            self.pos.y | (self.pos.x) << 10 | (self.dir as i32) << 20
+        } else {
+            self.pos.y | (self.pos.x) << 10
+        }
+    }
+
+    /*
+    fn key(&self, part: u32) -> String {
+        if part == 2 {
+            format!("{},{},{}", self.pos.x, self.pos.y, self.dir as i32)
+        } else {
+            format!("{},{}", self.pos.x, self.pos.y)
+        }
+    }
+    */
+
+    fn next_pos(&self) -> Point32 {
+        let mut result = self.pos;
+        match self.dir {
+            Compass::North => result.y -= 1,
+            Compass::East => result.x += 1,
+            Compass::South => result.y += 1,
+            Compass::West => result.x -= 1,
+            _ => (),
+        };
+        result
+    }
+}
+
 impl NorthPoleLab {
 
-    fn walk(&self) -> HashSet::<Point32> {
-        let mut pos = self.guard.pos;
-        let mut dir = self.guard.dir;
-        let mut walk = HashSet::new();
-        let ch = &self.map.chars;
+    fn walk_part1(&self) -> usize {
+        self.walk_impl(&self.map, 1).map_or(0, |set| set.len())
+    }
 
-        walk.insert(pos);
+    fn walk_part2(&self) -> usize {
+        let mut count: usize = 0;
+        for y in 0..self.map.height - 1 {
+            //println!("Row={}", y);
+            for x in 0..self.map.width - 1 {
+                let p = Point32 { x, y };
+                let c = self.map.chars[&p];
+                if c != '#' && c != '^' {
+                    let map = self.map.obstruct_at(p);
+                    if self.walk_impl(&map, 2).is_err() {
+                        count += 1;
+                    }
+                }
+            }
+        }
+        count
+    }
+
+    fn walk_impl(&self, map: &NorthPoleMap, part: u32) -> Result<HashSet<i32>, NorthPoleErr> {
+        let mut gcurr = self.guard;
+        let mut walk = HashSet::new();
+        walk.insert(gcurr.key(part));
 
         loop {
-            let mut next = pos;
-            match dir {
-                Compass::North => next.y -= 1,
-                Compass::East => next.x += 1,
-                Compass::South => next.y += 1,
-                Compass::West => next.x -= 1,
-                _ => (),
-            }
+            let mut gnext = gcurr;
+            gnext.pos = gnext.next_pos();
 
-            if ch.contains_key(&next) {
+            if map.chars.contains_key(&gnext.pos) {
                 //println!("{:?}: ch={} (dir={:?})", next, ch[&next], dir);
-                if ch[&next] == '#' {
-                    dir = dir.cardinal_right();
+                if map.chars[&gnext.pos] == '#' {
+                    gcurr.dir = gcurr.dir.cardinal_right();
                 } else {
-                    walk.insert(next);
-                    pos = next;
+                    let key = gnext.key(part);
+                    if part == 2 && walk.contains(&key) {
+                        return Err(NorthPoleErr::CycleDetected);
+                    }
+
+                    walk.insert(key);
+                    gcurr.pos = gnext.pos;
                 }
 
                 continue;
@@ -56,7 +119,7 @@ impl NorthPoleLab {
             break;
         }
 
-        walk
+        Ok(walk)
     }
 }
 
@@ -92,12 +155,12 @@ fn default_input() -> &'static str {
 
 pub fn part1() -> String {
     let lab = NorthPoleLab::from(default_input());
-    lab.walk().len().to_string()
+    lab.walk_part1().to_string()
 }
 
 pub fn part2() -> String {
-    //let lab = NorthPoleLab::from(default_input());
-    String::from("zz")
+    let lab = NorthPoleLab::from(default_input());
+    lab.walk_part2().to_string()
 }
 
 fn main() {
@@ -121,17 +184,26 @@ mod tests {
         assert_eq!(lab.map.chars[&Point32 { x: 0, y: 0 }], '.');
         assert_eq!(lab.map.chars[&Point32 { x: 4, y: 0 }], '#');
 
-        let walk = lab.walk();
-        assert_eq!(walk.len(), 41);
+        let walk = lab.walk_part1();
+        assert_eq!(walk, 41);
     }
 
     #[test]
-    fn walk_impl() {
+    fn walk_part1() {
         let input = "....\r\n.#..\r\n.^..\r\n....";
 
         let lab = NorthPoleLab::from(input);
-        let walk = lab.walk();
-        assert_eq!(walk.len(), 3);
+        let walk = lab.walk_part1();
+        assert_eq!(walk, 3);
+    }
+
+    #[test]
+    fn walk_part2() {
+        let input = ".#......\r\n.......#\r\n...#....\r\n.....#..\r\no.o^....\r\n....#...\r\n#.......\r\n......#.\r\n";
+
+        let lab = NorthPoleLab::from(input);
+        let walk = lab.walk_part2();
+        assert_eq!(walk, 2);
     }
 
     #[test]
@@ -141,6 +213,6 @@ mod tests {
 
     #[test]
     fn solve_part2() {
-        //assert_eq!(part2(), "zz");
+        assert_eq!(part2(), "1748");
     }
 }
