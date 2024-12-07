@@ -47,6 +47,32 @@ impl BridgeEquation {
         }
         *cref
     }
+
+    fn calc_part2(&self) -> i64 {
+        let v0 = self.values[0];
+        let v1 = &self.values[1..];
+        self.calc_part2_impl(v0, v1, &mut 0)
+    }
+
+    fn calc_part2_impl(&self, acc: i64, values: &[i64], cref: &mut i64) -> i64 {
+        if values.len() == 1 {
+            if acc * values[0] == self.result { *cref += 1; }
+            if acc + values[0] == self.result { *cref += 1; }
+            if BridgeEquation::op_concat(acc, values[0]) == self.result { *cref += 1;}
+        } else {
+            let v0 = values[0];
+            let v1 = &values[1..];
+            self.calc_part2_impl(acc * v0, v1, cref);
+            self.calc_part2_impl(acc + v0, v1, cref);
+            self.calc_part2_impl(BridgeEquation::op_concat(acc, v0), v1, cref);
+        }
+        *cref
+    }
+
+    fn op_concat(a: i64, b: i64) -> i64 {
+        let blen = b.to_string().len() as u32;
+        a * i64::pow(10, blen) + b
+    }
 }
 
 fn default_input() -> &'static str {
@@ -64,8 +90,13 @@ pub fn part1() -> String {
 }
 
 pub fn part2() -> String {
-    //let model = InputModel::from(default_input());
-    String::from("zz")
+    let model = BridgeCalibration::from(default_input());
+
+    model.equations.iter()
+        .filter(|x| x.calc_part2() > 0)
+        .map(|x| x.result)
+        .sum::<i64>()
+        .to_string()
 }
 
 fn main() {
@@ -111,6 +142,35 @@ mod tests {
         assert_eq!(total, 190 + 3267 + 292);
     }
 
+    #[test]
+    fn eval_part2() {
+        let c = BridgeCalibration::from("190: 10 19\r\n3267: 81 40 27\r\n83: 17 5\r\n156: 15 6\r\n7290: 6 8 6 15\r\n161011: 16 10 13\r\n192: 17 8 14\r\n21037: 9 7 18 13\r\n292: 11 6 16 20");
+
+        assert_eq!(c.equations.len(), 9);
+        assert_eq!(c.equations[0].calc_part2(), 1);
+        assert_eq!(c.equations[1].calc_part2(), 2);
+        assert_eq!(c.equations[2].calc_part2(), 0);
+        assert_eq!(c.equations[3].calc_part2(), 1);
+        assert_eq!(c.equations[4].calc_part2(), 1);
+        assert_eq!(c.equations[5].calc_part2(), 0);
+        assert_eq!(c.equations[6].calc_part2(), 1);
+        assert_eq!(c.equations[7].calc_part2(), 0);
+        assert_eq!(c.equations[8].calc_part2(), 1);
+
+        let total = c.equations.iter()
+            .filter(|x| x.calc_part2() > 0)
+            .map(|x| x.result)
+            .sum::<i64>();
+
+        assert_eq!(total, 190 + 3267 + 292 + 156 + 7290 + 192);
+    }
+
+    #[test]
+    fn op_concat() {
+        assert_eq!(BridgeEquation::op_concat(1, 2), 12);
+        assert_eq!(BridgeEquation::op_concat(15, 2), 152);
+        assert_eq!(BridgeEquation::op_concat(15, 22), 1522);
+    }
 
     #[test]
     fn solve_part1() {
@@ -119,6 +179,6 @@ mod tests {
 
     #[test]
     fn solve_part2() {
-        assert_eq!(part2(), "zz");
+        assert_eq!(part2(), "145397611075341");
     }
 }
