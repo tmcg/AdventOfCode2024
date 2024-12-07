@@ -21,6 +21,7 @@ struct NorthPoleLab {
     guard: NorthPoleGuard
 }
 
+#[derive(Debug)]
 enum NorthPoleErr {
     CycleDetected,
 }
@@ -34,25 +35,6 @@ impl NorthPoleMap {
 }
 
 impl NorthPoleGuard {
-    #[inline]
-    fn key(&self, part: u32) -> i32 {
-        if part == 2 {
-            self.pos.y | (self.pos.x) << 10 | (self.dir as i32) << 20
-        } else {
-            self.pos.y | (self.pos.x) << 10
-        }
-    }
-
-    /*
-    fn key(&self, part: u32) -> String {
-        if part == 2 {
-            format!("{},{},{}", self.pos.x, self.pos.y, self.dir as i32)
-        } else {
-            format!("{},{}", self.pos.x, self.pos.y)
-        }
-    }
-    */
-
     fn next_pos(&self) -> Point32 {
         let mut result = self.pos;
         match self.dir {
@@ -67,17 +49,32 @@ impl NorthPoleGuard {
 }
 
 impl NorthPoleLab {
+    fn walk_key(&self, pos: &Point32, dir: &Compass, part: u32) -> i32 {
+        match part {
+            1 => pos.y | pos.x << 10,
+            _ => pos.y | pos.x << 10 | (*dir as i32) << 20,
+        }
+    }
 
     fn walk_part1(&self) -> usize {
-        self.walk_impl(&self.map, 1).map_or(0, |set| set.len())
+        self.walk_impl(&self.map, 1).expect("Part 1 should not fail").len()
     }
 
     fn walk_part2(&self) -> usize {
+        let pt1 = self.walk_impl(&self.map, 1).expect("Part 1 should not fail");
+
         let mut count: usize = 0;
         for y in 0..self.map.height - 1 {
             //println!("Row={}", y);
             for x in 0..self.map.width - 1 {
                 let p = Point32 { x, y };
+
+                // Optimisation: only consider points from part 1
+                let key = self.walk_key(&p, &Compass::North, 1);
+                if !pt1.contains(&key) {
+                    continue;
+                }
+
                 let c = self.map.chars[&p];
                 if c != '#' && c != '^' {
                     let map = self.map.obstruct_at(p);
@@ -93,7 +90,7 @@ impl NorthPoleLab {
     fn walk_impl(&self, map: &NorthPoleMap, part: u32) -> Result<HashSet<i32>, NorthPoleErr> {
         let mut gcurr = self.guard;
         let mut walk = HashSet::new();
-        walk.insert(gcurr.key(part));
+        walk.insert(self.walk_key(&gcurr.pos, &gcurr.dir, part));
 
         loop {
             let mut gnext = gcurr;
@@ -104,7 +101,7 @@ impl NorthPoleLab {
                 if map.chars[&gnext.pos] == '#' {
                     gcurr.dir = gcurr.dir.cardinal_right();
                 } else {
-                    let key = gnext.key(part);
+                    let key = self.walk_key(&gnext.pos, &gnext.dir, part);
                     if part == 2 && walk.contains(&key) {
                         return Err(NorthPoleErr::CycleDetected);
                     }
