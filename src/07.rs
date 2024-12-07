@@ -28,50 +28,49 @@ impl From<&str> for BridgeEquation {
     }
 }
 
+impl BridgeCalibration {
+    const OP_ADD: u8 = 0b001;
+    const OP_MUL: u8 = 0b010;
+    const OP_CON: u8 = 0b100;
+
+    fn op_concat(a: i64, b: i64) -> i64 {
+        let bl = b.checked_ilog10().unwrap_or(0);
+        let bp = i64::pow(10, bl + 1);
+        a * bp + b
+    }
+}
+
 impl BridgeEquation {
     fn calc_part1(&self) -> i64 {
-        let v0 = self.values[0];
-        let v1 = &self.values[1..];
-        self.calc_part1_impl(v0, v1, &mut 0)
-    }
-
-    fn calc_part1_impl(&self, acc: i64, values: &[i64], cref: &mut i64) -> i64 {
-        if values.len() == 1 {
-            if acc * values[0] == self.result { *cref += 1; }
-            if acc + values[0] == self.result { *cref += 1; } 
-        } else {
-            let v0 = values[0];
-            let v1 = &values[1..];
-            self.calc_part1_impl(acc * v0, v1, cref);
-            self.calc_part1_impl(acc + v0, v1, cref);
-        }
-        *cref
+        self.calc(BridgeCalibration::OP_ADD | BridgeCalibration::OP_MUL)
     }
 
     fn calc_part2(&self) -> i64 {
+        self.calc(BridgeCalibration::OP_ADD | BridgeCalibration::OP_MUL | BridgeCalibration::OP_CON)
+    }
+
+    fn calc(&self, ops: u8) -> i64 {
         let v0 = self.values[0];
         let v1 = &self.values[1..];
-        self.calc_part2_impl(v0, v1, &mut 0)
+        self.calc_impl(v0, v1, &mut 0, ops)
     }
 
-    fn calc_part2_impl(&self, acc: i64, values: &[i64], cref: &mut i64) -> i64 {
-        if values.len() == 1 {
-            if acc * values[0] == self.result { *cref += 1; }
-            if acc + values[0] == self.result { *cref += 1; }
-            if BridgeEquation::op_concat(acc, values[0]) == self.result { *cref += 1;}
+    fn calc_impl(&self, acc: i64, values: &[i64], cref: &mut i64, ops: u8) -> i64 {
+        let op_add = ops & BridgeCalibration::OP_ADD > 0;
+        let op_mul = ops & BridgeCalibration::OP_MUL > 0;
+        let op_con = ops & BridgeCalibration::OP_CON > 0;
+        let v0 = values[0];
+        let v1 = &values[1..];
+        if v1.is_empty() {
+            if op_add && acc + v0 == self.result { *cref +=1 };
+            if op_mul && acc * v0 == self.result { *cref +=1 };
+            if op_con && BridgeCalibration::op_concat(acc, v0) == self.result { *cref +=1 };
         } else {
-            let v0 = values[0];
-            let v1 = &values[1..];
-            self.calc_part2_impl(acc * v0, v1, cref);
-            self.calc_part2_impl(acc + v0, v1, cref);
-            self.calc_part2_impl(BridgeEquation::op_concat(acc, v0), v1, cref);
+            if op_add { self.calc_impl(acc + v0, v1, cref, ops); }
+            if op_mul { self.calc_impl(acc * v0, v1, cref, ops); }
+            if op_con { self.calc_impl(BridgeCalibration::op_concat(acc, v0), v1, cref, ops); }
         }
         *cref
-    }
-
-    fn op_concat(a: i64, b: i64) -> i64 {
-        let blen = b.to_string().len() as u32;
-        a * i64::pow(10, blen) + b
     }
 }
 
@@ -167,9 +166,9 @@ mod tests {
 
     #[test]
     fn op_concat() {
-        assert_eq!(BridgeEquation::op_concat(1, 2), 12);
-        assert_eq!(BridgeEquation::op_concat(15, 2), 152);
-        assert_eq!(BridgeEquation::op_concat(15, 22), 1522);
+        assert_eq!(BridgeCalibration::op_concat(1, 2), 12);
+        assert_eq!(BridgeCalibration::op_concat(15, 2), 152);
+        assert_eq!(BridgeCalibration::op_concat(15, 22), 1522);
     }
 
     #[test]
